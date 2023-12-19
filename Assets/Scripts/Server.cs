@@ -61,9 +61,9 @@ public class Server : NetworkManager
                                 Buffer.BlockCopy(BitConverter.GetBytes((int)respHeader.space), 0, responseBuff, 4, 4);
 
                                 networkStream.Write(responseBuff, 0, 8);
-                                break;
                             }
 
+                            break;
                         case ProtocolData.MessageCode.TURN:
                             // slučaj početka igre
                             {
@@ -77,37 +77,44 @@ public class Server : NetworkManager
 
                                 // kreirajte random varijablu kako bi odlučili čiji je krug
                                 // pohranite ostatak od dijeljenja s dva u novu varijablu result (ako je ostatak 0 igra server, a ako je ostatak 1 igra klijent)
-                                
+                                int result = new System.Random().Next() % 2;
+
                                 // pretvaranje u bitove te kopiranje u responseBuffer.
                                 Buffer.BlockCopy(BitConverter.GetBytes(result), 0, responseBuff, 8, 4);
 
                                 // započnite igru kroz gameManager
-                                
+                                gameManager.BeginGame();
+
                                 //ako je rezultat nula započinje igrač koji je server odnosno uključuje se ploča kroz EnableBoard()
-                               
+                                if (result == 0)
+                                    gameManager.EnableBoard();
 
                                 // pošaljite responseBuff klijentu
-                                //prekinite switch
-                                
+                                networkStream.Write(responseBuff, 0, 8);
                             }
-
+                            //prekinite switch
+                            break;
                         case ProtocolData.MessageCode.MOVE:
-                        {
-                            // izvršite potez putem gameManagera te na odgovarajuće polje
-                            if (!gameManager.gameFinished)
                             {
-                                // uključite ploču da ovaj igrač može odigrati
+                                // izvršite potez putem gameManagera te na odgovarajuće polje
+                                gameManager.ExecuteMove((int)recievedUnit.space);
+                                if (!gameManager.gameFinished)
+                                {
+                                    // uključite ploču da ovaj igrač može odigrati
+                                    gameManager.EnableBoard();
+                                }
+                                // prekinite switch
                             }
-                            // prekinite switch
-                        }
+                            break;
                         case ProtocolData.MessageCode.EXIT:
                             {
                                 //zatvorite mrežno strujanje
+                                networkStream.Close();
                                 // postavite zastavicu da da je igra zatvorena
-                                // prekinite switch
-
-                               
+                                gameManager.gameFinished = true;
                             }
+                            // prekinite switch
+                            break;
                     }
                 }
             }
@@ -141,49 +148,58 @@ public class Server : NetworkManager
     IPAddress GetLocalIPAddress()
     {
         // instancirajte novu varijablu tipa IPAdress te je postavite na null
-
+        IPAddress address = null;
         try
-        {   
+        {
             // kreirajte novi socket tipa Dgram te predviđen za IP mrežu
-
+            Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             // spojite socket s Google poslužiteljem 8.8.8.8 na pot 65530
+            IPEndPoint ep = new IPEndPoint(IPAddress.Parse("8.8.8.8"), 65530);
+            s.Connect(ep);
             // provjera je li krajnja točka socketa IP krajnja točka
             if (s.LocalEndPoint is IPEndPoint endPoint)
+            {
                 //postavite varijablu lokalne adrese na adresu endpointa
+                address = endPoint.Address;
+            }
         }
         catch (SocketException exc)
         {
             Debug.Log("SocketException from GetLocalIPAddress: " + exc.Message);
         }
         // vratite kao rezultat adresu
+        return address;
     }
 
 
     void ListenForBroadcast()
     {
         // definirajte varijablu responseData u koju ćete pohraniti odgovor "TIC" kako bi klijent znao da se radi o poslužitelju
-
+        string reponseData = new string("TIC");
         // definirajte varjablu clientEP koja će biti tipa IPEndpoint te koja će poprimiti vrijednost od nadolazećeg paketa.
-
+        IPEndPoint clientEP = new IPEndPoint(IPAddress.Any, 0);
         // definirajte varijablu udpClient koja će biti tipa udpCient te će čekati na portu predefiniranom u strukturi Constants nadklase NetworkManager
-
+        UdpClient udpClient = new UdpClient(Constants.PORT);
         // inicirajte petlju
-       
+        while(true)
         {
             //definirajte varijablue requestData u koju se pohranjuje dolazna informacija iz novog udpCLienta
-            
-
+            byte[] requestData;
+            requestData = udpClient.Receive(ref clientEP);
             // provjera je li u dolaznoj informaciji poruka TACTOE
             if (Encoding.ASCII.GetString(requestData) == "TACTOE")
             {
-                // pokrenit tcpServer
-                // odgovorite na poruku putem udpCLeinta te pošaljite responseData ("TIC) na adresu s koje je došla poruka
-                // postavite tcpClienta da prima poruke
-                // prekinite petlju
-              
+                //     pokrenit tcpServer
+                tcpServer.Start();
+                //     odgovorite na poruku putem udpCLeinta te pošaljite responseData ("TIC) na adresu s koje je došla poruka
+                udpClient.Send(Encoding.ASCII.GetBytes(reponseData), 3, clientEP);
+                //     postavite tcpClienta da prima poruke
+                tcpClient.Connect(clientEP);
+                //     prekinite petlju
+                break;
             }
         }
         // zatvorite udpClienta
-       
+        udpClient.Close();
     }
 }

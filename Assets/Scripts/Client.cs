@@ -57,8 +57,8 @@ public class Client : NetworkManager
                                 Buffer.BlockCopy(BitConverter.GetBytes((int)respHeader.space), 0, responseBuff, 4, 4);
 
                                 networkStream.Write(responseBuff, 0, 8);
-                                break;
                             }
+                            break;
 
                         case ProtocolData.MessageCode.TURN:
                             {
@@ -66,34 +66,52 @@ public class Client : NetworkManager
                                 int result = BitConverter.ToInt32(buffer, 8);
 
                                 //započnite igru kroz gameManagera
+                                gameManager.BeginGame();
                                 // ako je rezultat jedan igru počinje klijent odnosno uključuje se ploča kroz EnableBoard() 
-                                //prekinite switch
+                                if (result == 1)
+                                    gameManager.EnableBoard();
                             }
-
+                            //prekinite switch
+                            break;
                         case ProtocolData.MessageCode.MOVE:
                             {
                                 // izvršite potez putem gameManagera te na odgovarajuće polje
+                                gameManager.ExecuteMove((int)recievedUnit.space);
                                 if (!gameManager.gameFinished)
                                 {
                                     // uključite ploču da ovaj igrač može odigrati
+                                    gameManager.EnableBoard();
                                 }
-                                // prekinite switch
                             }
+                            // prekinite switch
+                            break;
                         case ProtocolData.MessageCode.RESTART:
                             {
                                 //inicijalizirajte ploču kroz gameManager
+                                gameManager.InitializeBoard();
                                 //započnite igru kroz gameManager
+                                gameManager.BeginGame();
                                 //pošaljite poruku o sinkronizaciji kroz networkStream
-                                // prekinite switch
-                              
+
+                                respHeader.messageCode = ProtocolData.MessageCode.SYNC;
+                                respHeader.space = ProtocolData.MoveSpace.NULL_SPACE;
+
+                                Buffer.BlockCopy(BitConverter.GetBytes((int)respHeader.messageCode), 0, responseBuff, 0, 4);
+                                Buffer.BlockCopy(BitConverter.GetBytes((int)respHeader.space), 0, responseBuff, 4, 4);
+
+                                networkStream.Write(responseBuff, 0, 8);
                             }
+                            // prekinite switch
+                            break;
                         case ProtocolData.MessageCode.EXIT:
                             {
                                 //zatvorite mrežno strujanje
+                                networkStream.Close(); 
                                 // postavite zastavicu da da je igra zatvorena
-                                // prekinite switch
-
+                                gameManager.gameFinished = true; 
                             }
+                            // prekinite switch
+                            break;
                     }
                 }
             }
@@ -123,23 +141,27 @@ public class Client : NetworkManager
     private IPAddress SendBroadcast()
     {
         // definirajte varijablu requestData u koju ćete pohraniti odgovor "TACTOE" kako bi poslužitelj znao da se radi o klijentu
+        string requestData = new string("TACTOE");
         // definirajte varjablu serverEp koja će biti tipa IPEndpoint te koja će poprimiti vrijednost od  paketa odgovora.
+        IPEndPoint serverEP = new IPEndPoint(IPAddress.Any, 0);
         // kreirajte byte polje koje će pohraniti povratnu inforaciju te ga inicijalizirajte na null
+        byte[] response = null;
         // kreijrajte varijablu udpClinet tipa UdpClient
+        UdpClient udpClient = new UdpClient();
         // u novokreiranom udpClientu uključite opciju boradcast
+        udpClient.EnableBroadcast = true;
         // postavite ReceiveTimeout u novom udpClientu na 5000
+        udpClient.Client.ReceiveTimeout = 5000;
 
- 
 
         // inicirajte petlju
-
         while (true)
         {
             // provjerite je li udpClient aktivan (ne null)
-       
+            if(udpClient != null)
             {
                 // pošaljite requestData na broadcast IP adresu te port iz Constant polja
-
+                udpClient.Send(Encoding.ASCII.GetBytes(requestData), 3, new IPEndPoint(IPAddress.Broadcast, Constants.PORT));
 
                 // pokrenite periodički task - ostavite ovaj kod
                 Task.Run(() =>
@@ -147,7 +169,7 @@ public class Client : NetworkManager
                         try
                         {
                             // pohranite  u variajblu response data dolazna informacija iz novog udpCLienta
-
+                            response = udpClient.Receive(ref serverEP);
                         }
                         // hvatanje iznimke
                         catch (SocketException exc)
@@ -158,11 +180,11 @@ public class Client : NetworkManager
                 ).Wait(5000);
 
                 // provjera je li postoji odgovor i je li u njemu "TIC"
-                if (responseData != null && Encoding.ASCII.GetString(responseData) == "TIC")
+                if (response != null && Encoding.ASCII.GetString(response) == "TIC")
                 {
-                    //zatvorite udpClienta
+                    udpClient.Close();
                     // vratite identificiranu adresu poslužitelja
-                   
+                    return serverEP.Address;
                 }
             }
             else
