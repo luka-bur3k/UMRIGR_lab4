@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Numerics;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -171,6 +173,21 @@ public class GameManager : MonoBehaviour
 
     public void AccessSendMove(int move)
     {
+        // % 5 percent change of random tile 
+        bool bringChaos = UnityEngine.Random.Range(0, 100) >= 95;
+
+        if (bringChaos)
+        {
+            List<int> availableFields = new List<int>();
+            for (int i = 0; i < gridSpaces.Length; i++)
+            {
+                if (gridSpaces[i].interactable)
+                    availableFields.Add(i);
+            }
+            move = availableFields[UnityEngine.Random.Range(0, availableFields.Count)];
+        }
+
+        ExecuteMove(move);
         netManager.SendMove(move);
     }
 

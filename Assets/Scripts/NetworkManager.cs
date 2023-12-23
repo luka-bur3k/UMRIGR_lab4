@@ -67,6 +67,7 @@ public abstract class NetworkManager : IDisposable
 
 public void SendMove(int move)
 {
+
         // isključiti u gameManageru mogućnost igranja kroz disable boeard
         gameManager.DisableBoard();
         // definirati novi buffer
