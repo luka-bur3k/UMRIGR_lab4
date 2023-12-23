@@ -26,6 +26,8 @@ public class Client : NetworkManager
         {
             IPAddress serverAddress = await Task.Run(() => SendBroadcast());
 
+
+            Debug.Log("Recieved address " + serverAddress);
             if (serverAddress != null)
             {
                 tcpClient = new TcpClient();
@@ -38,7 +40,7 @@ public class Client : NetworkManager
                 bool close = false;
                 while (!close && (read = await networkStream.ReadAsync(buffer)) != 0)
                 {
-
+                     
                     ProtocolData recievedUnit = new() { };
                     recievedUnit.messageCode = (ProtocolData.MessageCode)BitConverter.ToInt32(buffer, 0);
                     recievedUnit.space = (ProtocolData.MoveSpace)BitConverter.ToInt32(buffer, 4);
@@ -161,7 +163,7 @@ public class Client : NetworkManager
             if(udpClient != null)
             {
                 // pošaljite requestData na broadcast IP adresu te port iz Constant polja
-                udpClient.Send(Encoding.ASCII.GetBytes(requestData), 3, new IPEndPoint(IPAddress.Broadcast, Constants.PORT));
+                udpClient.Send(Encoding.ASCII.GetBytes(requestData), 6, new IPEndPoint(IPAddress.Broadcast, Constants.PORT));
 
                 // pokrenite periodički task - ostavite ovaj kod
                 Task.Run(() =>
@@ -179,10 +181,13 @@ public class Client : NetworkManager
                     }
                 ).Wait(5000);
 
+
                 // provjera je li postoji odgovor i je li u njemu "TIC"
                 if (response != null && Encoding.ASCII.GetString(response) == "TIC")
                 {
+                    Debug.Log("I did recieve the TIC");
                     udpClient.Close();
+                    udpClient = null;
                     // vratite identificiranu adresu poslužitelja
                     return serverEP.Address;
                 }

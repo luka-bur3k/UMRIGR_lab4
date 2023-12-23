@@ -90,7 +90,7 @@ public class Server : NetworkManager
                                     gameManager.EnableBoard();
 
                                 // pošaljite responseBuff klijentu
-                                networkStream.Write(responseBuff, 0, 8);
+                                networkStream.Write(responseBuff, 0, 12);
                             }
                             //prekinite switch
                             break;
@@ -168,6 +168,7 @@ public class Server : NetworkManager
             Debug.Log("SocketException from GetLocalIPAddress: " + exc.Message);
         }
         // vratite kao rezultat adresu
+        Debug.Log(address);
         return address;
     }
 
@@ -187,6 +188,9 @@ public class Server : NetworkManager
             byte[] requestData;
             requestData = udpClient.Receive(ref clientEP);
             // provjera je li u dolaznoj informaciji poruka TACTOE
+
+            Debug.Log("Recieved : " + Encoding.ASCII.GetString(requestData));
+
             if (Encoding.ASCII.GetString(requestData) == "TACTOE")
             {
                 //     pokrenit tcpServer
@@ -194,7 +198,7 @@ public class Server : NetworkManager
                 //     odgovorite na poruku putem udpCLeinta te pošaljite responseData ("TIC) na adresu s koje je došla poruka
                 udpClient.Send(Encoding.ASCII.GetBytes(reponseData), 3, clientEP);
                 //     postavite tcpClienta da prima poruke
-                tcpClient.Connect(clientEP);
+                tcpClient = tcpServer.AcceptTcpClient();
                 //     prekinite petlju
                 break;
             }

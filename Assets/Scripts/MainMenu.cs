@@ -8,19 +8,21 @@ public class MainMenu : MonoBehaviour
 
     public void Create()
     {
+        Debug.Log("Create");
         playerType = PlayerType.HOST;
         SceneManager.LoadScene(1);
     }
 
     public void Join()
     {
+        Debug.Log("Join");
         playerType = PlayerType.CLIENT;
         SceneManager.LoadScene(1);
     }
 
     public void Exit()
     {
-        Console.Write("TEST");
+        Debug.Log("Exit");
         Application.Quit();
     }
 }
